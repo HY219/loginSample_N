@@ -2,6 +2,7 @@
 
 //express 모듈 사용
 var express = require('express');
+const request = require('request');
 
 //express()는 app이라는 객체를 return해서 -> app.set, app.get 등이 가능
 var app = express();
@@ -33,7 +34,6 @@ app.get('/naverlogin', function (req, res) {
    res.end("<a href='"+ api_url + "'><img height='50' src='http://static.nid.naver.com/oauth/small_g_in.PNG'/></a>");
  });
 
-
  app.get('/callback', function (req, res) {
     //req.query -> 경로의 각 쿼리 문자열 매개변수에 대한 속성이 포함된 객체이다.
     //->쿼리스트링의 값을 가져온다.(ex. http://query/search?searchWorld=쿼리스트링의 값)
@@ -48,7 +48,7 @@ app.get('/naverlogin', function (req, res) {
         url: api_url,
         headers: {'X-Naver-Client-Id':client_id, 'X-Naver-Client-Secret': client_secret}
      };
-
+    
 		//request.get()
 		//HTTP 네트워크 라이브러리
 		//get메서드를 통해 uri인자를 준다.
@@ -63,6 +63,35 @@ app.get('/naverlogin', function (req, res) {
       }
     });
   });
+
+  app.get('/user', function (req, res) {
+    api_uri = 'https://openapi.naver.com/v1/nid/me'
+    + client_id + '&client_secret=' + client_secret + '&redirect_uri=' + redirectURI + '&code=' + code + '&state=' + state;
+  
+    var options = {
+        url: api_uri,
+        headers: {
+          'Authorization': 'Bearer AAAAOVh-UI4JDGuyzE-VGWGe6d9ZDiB4FPOQljVyhORq2pcwcvRXuA-4io0KRxLZa5ZR58bgLyLYkv7wlD1pECt3-hI'}
+    };
+
+    request.get(options, function (error, response, body){
+      if(!error && response.statusCode == 200) {
+        res.writeHead(200, {'Content-Type': 'text/json;charset=utf-8'});
+        res.end(body);
+      }
+    })
+  
+  })
+
+
+/*
+  //3.4.5 접근 토큰을 이용하여 프로필 API 호출하기
+  app.get('/callback', function (req, res) {
+    api_uri = 'https://openapi.naver.com/v1/nid/me'
+  )}
+  */
+
+
  app.listen(3000, function () {
    console.log('http://127.0.0.1:3000/naverlogin app listening on port 3000!');
  });
