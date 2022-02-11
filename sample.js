@@ -2,7 +2,7 @@
 
 //express 모듈 사용
 var express = require('express');
-const request = require('request');
+var request = require('request');
 
 //express()는 app이라는 객체를 return해서 -> app.set, app.get 등이 가능
 var app = express();
@@ -15,11 +15,15 @@ var redirectURI = encodeURI("YOUR_CALLBACK_URL"); //redirectURI = 로그인 창
 var api_url = "";
 */
 
-var client_id = 'lQQMGAXDPyBpJ4nDeqhL'
+var client_id = 'lQQMGAXDPyBpJ4nDeqhL';
 var client_secret = 'HtjKR6HLXo';
 var state = Math.random();
 var redirectURI = encodeURI("http://127.0.0.1:3000/callback");
 var api_url = "";
+var token_type = "";
+var all_token = "";
+var accesstoken = "";
+//var header = "Bearer " + accesstoken;
 
 //app.METHOD(PATH, HANDLER)
 //app은 express의 인스턴스, METHOD는 HTTP요청 메소드,
@@ -32,12 +36,14 @@ app.get('/naverlogin', function (req, res) {
     //로그인 로고 이미지 출력
     //이미지를 클릭하면 바로 33의 api_url을 거쳐서-> 바로 44의 api_url주소를 띄워준다.
    res.end("<a href='"+ api_url + "'><img height='50' src='http://static.nid.naver.com/oauth/small_g_in.PNG'/></a>");
- });
+  });
 
  app.get('/callback', function (req, res) {
     //req.query -> 경로의 각 쿼리 문자열 매개변수에 대한 속성이 포함된 객체이다.
     //->쿼리스트링의 값을 가져온다.(ex. http://query/search?searchWorld=쿼리스트링의 값)
     //->{ searchWorld : '쿼리스트링의 값' } (?)
+    console.log(req.query);
+    //console.log(req);
     code = req.query.code; //query의 code값 요청해서 가져옴(?)
     state = req.query.state;
     //로그인 성공하면 뜨는 창
@@ -55,8 +61,20 @@ app.get('/naverlogin', function (req, res) {
     //request모듈로 option안의 값들 요청해서 가져오기(?)
     request.get(options, function (error, response, body) {
       if (!error && response.statusCode == 200) {
-        res.writeHead(200, {'Content-Type': 'text/json;charset=utf-8'}); //출력형식 지정
-        res.end(body); //options을 요청했을 때, 서버에서 주는 정보를 body에 담아서 출력
+        //res.writeHead(200, {'Content-Type': 'text/json;charset=utf-8'}); //출력형식 지정
+        res.writeHead(200, {'Content-Type': 'text/html;charset=utf-8'}); //html형태로 출력
+
+        //접근 토큰 추출
+        /*
+        var all_token = JSON.parse(body);
+        var accesstoken = all_token.access_token;
+        */
+        accesstoken = JSON.parse(body).access_token; //var (X)!!! //-> 전역으로 선언돼서, 선언된 함수를 벗어나면 사라진다.(선언된 함수 외부에서 인식할 수 없다.)
+        console.log(body);
+        console.log(accesstoken);
+        res.end('<a href = "/user">사용자프로필조회</a>');
+        //res.end('<a href = "/user">사용자프로필조회</a>');
+        //res.send(all_token.access_token);
       } else {
         res.status(response.statusCode).end();
         console.log('error = ' + response.statusCode);
@@ -65,20 +83,52 @@ app.get('/naverlogin', function (req, res) {
   });
 
   app.get('/user', function (req, res) {
-    api_uri = 'https://openapi.naver.com/v1/nid/me'
-    + client_id + '&client_secret=' + client_secret + '&redirect_uri=' + redirectURI + '&code=' + code + '&state=' + state;
-  
+    console.log(req.query);
+    console.log(accesstoken);
+    //accesstoken = req.query.code;
+    // api_url = 'https://openapi.naver.com/v1/nid/me';
+    // client_id + '&client_secret=' + client_secret + '&redirect_uri=' + redirectURI + '&code=' + code + '&state=' + state;
+    var request = require('request');
     var options = {
-        url: api_uri,
+        url: 'https://openapi.naver.com/v1/nid/me',
         headers: {
-          'Authorization': 'Bearer AAAAOVh-UI4JDGuyzE-VGWGe6d9ZDiB4FPOQljVyhORq2pcwcvRXuA-4io0KRxLZa5ZR58bgLyLYkv7wlD1pECt3-hI'}
+          //공백, Bearer랑 accesstoken 반드시 따로 작성!! 필수!!
+          // 'Authorization': "Bearer "+"AAAAOCZKZtDYD-AGkMZ23Nz4oS4F-OKyEcVjv8l-lfSDcMmqZekxfwjiBdkqJe3-zpezVb7EQHsCpyJGUF4lYMsS8QQ"// ->성공
+          //'Authorization': token_type + accesstoken
+          'Authorization': "Bearer "+accesstoken//->왜 오류??????
+        }
     };
-
+    
     request.get(options, function (error, response, body){
-      if(!error && response.statusCode == 200) {
+      if (!error && response.statusCode == 200) {
         res.writeHead(200, {'Content-Type': 'text/json;charset=utf-8'});
         res.end(body);
+        console.log(body);
+      } else {
+        console.log('error');
+        if(response != null) {
+          res.status(response.statusCode).end();
+          console.log('error = ' + response.statusCode);
+        }
       }
+    /*{
+      res.writeHead(200, {'Content-Type': 'text/html;charset=utf-8'});
+        //res.end(body);
+        res.end(body);
+        console.log(body);
+        console.log(JSON.parse(body));
+      /*
+      if(!error && response.statusCode == 200) {
+        res.writeHead(200, {'Content-Type': 'text/html;charset=utf-8'});
+        //res.end(body);
+        res.end(body);
+        console.log(body);
+        console.log(JSON.parse(body));
+        //else추가
+      } else {
+        res.status(response.statusCode).end();
+        console.log('error = ' + response.statusCode);
+      }*/
     })
   
   })
@@ -87,7 +137,7 @@ app.get('/naverlogin', function (req, res) {
 /*
   //3.4.5 접근 토큰을 이용하여 프로필 API 호출하기
   app.get('/callback', function (req, res) {
-    api_uri = 'https://openapi.naver.com/v1/nid/me'
+    api_url = 'https://openapi.naver.com/v1/nid/me'
   )}
   */
 
