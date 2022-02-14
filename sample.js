@@ -24,6 +24,8 @@ var token_type = "";
 var all_token = "";
 var accesstoken = "";
 //var header = "Bearer " + accesstoken;
+var refreshtoken = "";
+//var Body = "";
 
 //app.METHOD(PATH, HANDLER)
 //app은 express의 인스턴스, METHOD는 HTTP요청 메소드,
@@ -38,18 +40,21 @@ app.get('/naverlogin', function (req, res) {
    res.end("<a href='"+ api_url + "'><img height='50' src='http://static.nid.naver.com/oauth/small_g_in.PNG'/></a>");
   });
 
+
+ //naver로그인api 연동
+
  app.get('/callback', function (req, res) {
     //req.query -> 경로의 각 쿼리 문자열 매개변수에 대한 속성이 포함된 객체이다.
     //->쿼리스트링의 값을 가져온다.(ex. http://query/search?searchWorld=쿼리스트링의 값)
     //->{ searchWorld : '쿼리스트링의 값' } (?)
-    console.log(req.query);
+    //console.log(req.query);
     //console.log(req);
     code = req.query.code; //query의 code값 요청해서 가져옴(?)
     state = req.query.state;
     //로그인 성공하면 뜨는 창
     api_url = 'https://nid.naver.com/oauth2.0/token?grant_type=authorization_code&client_id='
      + client_id + '&client_secret=' + client_secret + '&redirect_uri=' + redirectURI + '&code=' + code + '&state=' + state; //가져온 code, state값이 들어감.(?)
-    var request = require('request'); //request 모듈 다운받기(npm install request -s) -> package.json안에 다운로드 버전 확인가능
+    //var request = require('request'); //request 모듈 다운받기(npm install request -s) -> package.json안에 다운로드 버전 확인가능
     var options = {
         url: api_url,
         headers: {'X-Naver-Client-Id':client_id, 'X-Naver-Client-Secret': client_secret}
@@ -70,8 +75,13 @@ app.get('/naverlogin', function (req, res) {
         var accesstoken = all_token.access_token;
         */
         accesstoken = JSON.parse(body).access_token; //var (X)!!! //-> 전역으로 선언돼서, 선언된 함수를 벗어나면 사라진다.(선언된 함수 외부에서 인식할 수 없다.)
-        console.log(body);
+        refreshtoken = JSON.parse(body).refresh_token; //갱신토큰 추출
+        Body = JSON.parse(body);
+        
+        //console.log(body);
+        console.log(Body);
         console.log(accesstoken);
+        console.log(refreshtoken);
         res.end('<a href = "/user">사용자프로필조회</a>');
         //res.end('<a href = "/user">사용자프로필조회</a>');
         //res.send(all_token.access_token);
@@ -82,28 +92,35 @@ app.get('/naverlogin', function (req, res) {
     });
   });
 
+
+  //접근토큰을 사용해 사용자 정보 가져오기
+
   app.get('/user', function (req, res) {
-    console.log(req.query);
+    //console.log(req.query);
     console.log(accesstoken);
     //accesstoken = req.query.code;
     // api_url = 'https://openapi.naver.com/v1/nid/me';
     // client_id + '&client_secret=' + client_secret + '&redirect_uri=' + redirectURI + '&code=' + code + '&state=' + state;
-    var request = require('request');
+    //var request = require('request');
     var options = {
         url: 'https://openapi.naver.com/v1/nid/me',
         headers: {
           //공백, Bearer랑 accesstoken 반드시 따로 작성!! 필수!!
           // 'Authorization': "Bearer "+"AAAAOCZKZtDYD-AGkMZ23Nz4oS4F-OKyEcVjv8l-lfSDcMmqZekxfwjiBdkqJe3-zpezVb7EQHsCpyJGUF4lYMsS8QQ"// ->성공
           //'Authorization': token_type + accesstoken
-          'Authorization': "Bearer "+accesstoken//->왜 오류??????
+          'Authorization': "Bearer "+accesstoken//->왜 오류?????? -> accesstoken을 지역변수로 선언해놔서 오류났었음.
         }
     };
     
     request.get(options, function (error, response, body){
       if (!error && response.statusCode == 200) {
-        res.writeHead(200, {'Content-Type': 'text/json;charset=utf-8'});
-        res.end(body);
-        console.log(body);
+        //res.writeHead(200, {'Content-Type': 'text/json;charset=utf-8'});
+        res.writeHead(200, {'Content-Type': 'text/html;charset=utf-8'});
+        res.end('<a href = "/refresh">갱신토큰이용확인</a>');
+        //res.end(body);
+        Body = JSON.parse(body);
+        console.log(Body);
+        //console.log(body);
       } else {
         console.log('error');
         if(response != null) {
@@ -111,35 +128,41 @@ app.get('/naverlogin', function (req, res) {
           console.log('error = ' + response.statusCode);
         }
       }
-    /*{
-      res.writeHead(200, {'Content-Type': 'text/html;charset=utf-8'});
-        //res.end(body);
-        res.end(body);
-        console.log(body);
-        console.log(JSON.parse(body));
-      /*
-      if(!error && response.statusCode == 200) {
-        res.writeHead(200, {'Content-Type': 'text/html;charset=utf-8'});
-        //res.end(body);
-        res.end(body);
-        console.log(body);
-        console.log(JSON.parse(body));
-        //else추가
-      } else {
-        res.status(response.statusCode).end();
-        console.log('error = ' + response.statusCode);
-      }*/
-    })
-  
-  })
+    });
+  });
 
 
-/*
-  //3.4.5 접근 토큰을 이용하여 프로필 API 호출하기
-  app.get('/callback', function (req, res) {
-    api_url = 'https://openapi.naver.com/v1/nid/me'
-  )}
-  */
+  //갱신토큰을 이용한 접근토큰 재발급 요청
+
+  app.get('/refresh', function (req, res) {
+
+    //code = req.query.code; //query의 code값 요청해서 가져옴(?)
+    //state = req.query.state;
+ 
+    api_url = 'https://nid.naver.com/oauth2.0/token?grant_type=refresh_token&client_id='
+     + client_id + '&client_secret=' + client_secret + '&refresh_token=' + refreshtoken;// + '&code=' + code + '&state=' + state; //가져온 code, state값이 들어감.(?)
+    //var request = require('request'); //request 모듈 다운받기(npm install request -s) -> package.json안에 다운로드 버전 확인가능
+    var options = {
+        url: api_url,
+        headers: {'X-Naver-Client-Id':client_id, 'X-Naver-Client-Secret': client_secret}
+     };
+    
+    request.get(options, function (error, response, body) {
+      if (!error && response.statusCode == 200) {
+        //res.writeHead(200, {'Content-Type': 'text/json;charset=utf-8'}); //출력형식 지정
+        res.writeHead(200, {'Content-Type': 'text/html;charset=utf-8'}); //html형태로 출력
+
+        accesstoken = JSON.parse(body).access_token; //var (X)!!! //-> 전역으로 선언돼서, 선언된 함수를 벗어나면 사라진다.(선언된 함수 외부에서 인식할 수 없다.)
+        refreshtoken= JSON.parse(body).refresh_token;
+        Body = JSON.parse(body);
+        
+        //console.log(body);
+        console.log(Body);
+        console.log(accesstoken);
+        console.log(refreshtoken);
+      } 
+    });
+  });
 
 
  app.listen(3000, function () {
